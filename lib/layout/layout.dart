@@ -1,3 +1,4 @@
+import 'package:conditional_builder/conditional_builder.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -5,6 +6,8 @@ import 'package:sqf_flutter/archive/archive.dart';
 import 'package:sqf_flutter/done_Tasks/done_tasks.dart';
 import 'package:sqf_flutter/new_tasks/new_tsks.dart';
 import 'package:sqflite/sqflite.dart';
+
+import '../shared/components/constants.dart';
 
 class layout extends StatefulWidget {
   @override
@@ -38,10 +41,14 @@ class _layoutState extends State<layout> {
   var timeController = TextEditingController();
   var dateController = TextEditingController();
 
+
+
+
   @override
   void initState() {
     super.initState();
     createDatabase();
+
   } // bttnfz 2bl el build
 
   @override
@@ -51,23 +58,33 @@ class _layoutState extends State<layout> {
       appBar: AppBar(
         title: Text(Titles[currentIndex]),
       ),
-      body: Screens[currentIndex],
+      body: ConditionalBuilder(
+        condition: tasks.length>0,
+        builder: (context)=> Screens[currentIndex],
+        fallback: (context)=>Center(
+            child:CircularProgressIndicator() ),
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           if (isButtomSheet) {
-            if(formKey.currentState!.validate())
+            if (formKey.currentState!.validate()) {
+              insertToDatabase(
+                   titleController.text,
+                  dateController.text,
+                  timeController.text).then((value)
               {
-                Navigator.pop(context);
+                Navigator.pop(context); // by3ml back beeha
                 isButtomSheet = false;
                 setState(() {
                   fabIcon = Icons.edit;
-                });
-              }
+              });
 
+              });
+            }
           } else {
             scaffoldKey.currentState?.showBottomSheet(
               (context) => Container(
-                color: Colors.grey[100],
+                color: Colors.white,
                 padding: EdgeInsets.all(20.0),
                 child: Form(
                   key: formKey,
@@ -92,7 +109,7 @@ class _layoutState extends State<layout> {
                         ),
                       ),
                       SizedBox(
-                        height: 10.0,
+                        height: 15.0,
                       ),
                       TextFormField(
                         controller: timeController,
@@ -102,7 +119,8 @@ class _layoutState extends State<layout> {
                             context: context,
                             initialTime: TimeOfDay.now(),
                           ).then((value) {
-                            timeController.text = value!.format(context).toString();
+                            timeController.text =
+                                value!.format(context).toString();
                             print(value!.format(context));
                           });
                         },
@@ -114,22 +132,22 @@ class _layoutState extends State<layout> {
                         },
                         decoration: InputDecoration(
                           border: OutlineInputBorder(),
-                          // labelText: 'Task Time',
+                          labelText: 'Task Time',
                           prefixIcon: Icon(
                             Icons.watch_later_outlined,
                           ),
                         ),
                       ),
                       SizedBox(
-                        height: 10.0,
+                        height: 15.0,
                       ),
                       TextFormField(
                         controller: dateController,
                         keyboardType: TextInputType.datetime,
                         onTap: () {
                           showDatePicker(
-                              context: context, 
-                              initialDate: DateTime.now(), 
+                              context: context,
+                              initialDate: DateTime.now(),
                               firstDate: DateTime.now(),
                               lastDate: DateTime.parse('2022-05-03'))
                               .then((value) {
@@ -142,21 +160,27 @@ class _layoutState extends State<layout> {
                           }
                           return null;
                         },
-
                         decoration: InputDecoration(
                           border: OutlineInputBorder(),
-                          // labelText: 'Date Time',
+                          labelText: 'Date Time',
                           prefixIcon: Icon(
                             Icons.calendar_today,
                           ),
                         ),
                       ),
-                    
                     ],
                   ),
                 ),
               ),
-            );
+              elevation: 20.0,
+            ).closed.then((value) // closed de 3shan lma anzel el bottom sheet be 2eedy el icon tet8yer
+            {
+              // msh m7tageen navigator.pop hena 3shan howa hy2fel el bottom sheet w y8yer el icon bs msh hy3mel back
+              isButtomSheet = false;
+              setState(() {
+                fabIcon = Icons.edit;
+              });
+            });
             isButtomSheet = true;
             setState(() {
               fabIcon = Icons.add;
@@ -201,7 +225,7 @@ void createDatabase() async {
           // elly foo2 ==> version
           async {
     await database.execute(
-        'CREATE TABLE tasks(id INTEGER PRIMARY KEY, title TEXT, date TEXT, time TEXT, status TEXT)');
+        'CREATE TABLE tasks(id INTEGER PRIMARY KEY, title TEXT, time TEXT, date TEXT, status TEXT)');
     try {
       print('created ');
     } catch (error) {
@@ -213,18 +237,32 @@ void createDatabase() async {
     // print({result});
   }, onOpen: (database) {
     print('database opened');
+    getDataFromDatabase(database).then((value) // then btdeni el return bta3 el function
+    {
+      tasks = value;
+      print(tasks);
+    });
   });
 }
 
-void insertToDatabase() async {
-  await database.transaction((txn) {
-    return txn
+Future insertToDatabase(
+    @required String title,
+@required String date,
+@required String time,
+    ) async {
+ return await database.transaction((txn) async {
+    txn
         .rawInsert(
-            'INSERT INTO tasks(title, date, time, status) VALUES("jgjgj", "bbb", "hh", "jhj")')
+            'INSERT INTO tasks(title, time, date, status) VALUES("$title", "$time", "$date", "jhj")')
         .then((value) {
       print('$value  inserted succesfully');
     }).catchError((error) {
       print('error when inserting ${error.toString()}');
     });
   });
+}
+Future <List<Map>> getDataFromDatabase(database) async
+{
+ return await database.rawQuery('SELECT * FROM tasks');
+
 }
